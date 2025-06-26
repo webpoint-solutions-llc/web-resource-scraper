@@ -25,9 +25,6 @@ class ResourceScraper:
         # Track downloaded files to avoid duplicates
         self.downloaded_files = set()
 
-        # Track folder structure
-        self.folder_structure = {}
-
     def clean_filename(self, text, max_length=100):
         """Clean and format text to be a valid filename"""
         if not text or not text.strip():
@@ -39,7 +36,10 @@ class ResourceScraper:
         # Clean up the text
         text = text.strip()
 
-        # Replace invalid filename characters (including those invalid for folder names)
+        # Convert to lowercase
+        text = text.lower()
+
+        # Replace invalid filename characters
         invalid_chars = r'[<>:"/\\|?*\x00-\x1f]'
         text = re.sub(invalid_chars, "_", text)
 
@@ -54,101 +54,6 @@ class ResourceScraper:
             text = text[:max_length].rstrip("_.")
 
         return text if text else None
-
-    def create_folder_name(self, url, page_title=None):
-        """Generate a folder name based on URL path and page title"""
-        parsed_url = urlparse(url)
-        path_parts = [part for part in parsed_url.path.split("/") if part]
-
-        # Use the last meaningful part of the URL path
-        folder_name = None
-        if path_parts:
-            folder_name = self.clean_filename(path_parts[-1])
-
-        # If we have a page title, use it (cleaned)
-        if page_title:
-            title_cleaned = self.clean_filename(page_title)
-            if title_cleaned and len(title_cleaned) > len(folder_name or ""):
-                folder_name = title_cleaned
-
-        # Fallback to a generic name based on URL
-        if not folder_name:
-            domain = parsed_url.netloc.replace("www.", "")
-            folder_name = self.clean_filename(domain) or "webpage"
-
-        return folder_name
-
-    def get_page_title(self, soup):
-        """Extract page title from soup"""
-        # Try multiple methods to get a meaningful page title
-        title = None
-
-        # Method 1: Page title tag
-        title_tag = soup.find("title")
-        if title_tag:
-            title = title_tag.get_text(strip=True)
-
-        # Method 2: Main heading
-        if not title:
-            h1 = soup.find("h1")
-            if h1:
-                title = h1.get_text(strip=True)
-
-        # Method 3: Meta title
-        if not title:
-            meta_title = soup.find("meta", attrs={"name": "title"}) or soup.find(
-                "meta", attrs={"property": "og:title"}
-            )
-            if meta_title:
-                title = meta_title.get("content", "").strip()
-
-        return title
-
-    def get_folder_path(self, page_url, page_title=None):
-        """Generate the full folder path for a given page"""
-        if page_url in self.folder_structure:
-            return self.folder_structure[page_url]
-
-        parsed_url = urlparse(page_url)
-        path_parts = [part for part in parsed_url.path.split("/") if part]
-
-        folder_parts = []
-
-        # Create nested structure based on URL path
-        if len(path_parts) > 0:
-            for part in path_parts:
-                clean_part = self.clean_filename(part)
-                if clean_part:
-                    folder_parts.append(clean_part)
-
-        # If we have a page title and it's different from the last path part, use it
-        if page_title:
-            title_cleaned = self.clean_filename(page_title)
-            if title_cleaned and (
-                not folder_parts or title_cleaned != folder_parts[-1]
-            ):
-                # Replace the last part with the title if it's more descriptive
-                if folder_parts:
-                    folder_parts[-1] = title_cleaned
-                else:
-                    folder_parts.append(title_cleaned)
-
-        # If no meaningful folder structure, create one based on domain
-        if not folder_parts:
-            domain = parsed_url.netloc.replace("www.", "")
-            folder_parts = [self.clean_filename(domain) or "website"]
-
-        # Create the full path
-        folder_path = os.path.join(self.download_folder, *folder_parts)
-
-        # Cache it
-        self.folder_structure[page_url] = folder_path
-
-        return folder_path
-
-    def ensure_folder_exists(self, folder_path):
-        """Create folder structure if it doesn't exist"""
-        Path(folder_path).mkdir(parents=True, exist_ok=True)
 
     def get_file_extension(self, url):
         """Extract file extension from URL"""
@@ -272,16 +177,18 @@ class ResourceScraper:
 
         return resources
 
-    def download_file(self, url, filepath):
-        """Download a single file to specified path"""
+    def download_file(self, url, filename):
+        """Download a single file"""
         if url in self.downloaded_files:
-            print(f"Already downloaded: {os.path.basename(filepath)}")
+            print(f"Already downloaded: {filename}")
             return True
 
         try:
-            print(f"Downloading: {os.path.basename(filepath)}")
+            print(f"Downloading: {filename}")
             response = self.session.get(url, stream=True)
             response.raise_for_status()
+
+            filepath = os.path.join(self.download_folder, filename)
 
             # Handle duplicate filenames
             counter = 1
@@ -291,19 +198,16 @@ class ResourceScraper:
                 filepath = f"{name}_{counter}{ext}"
                 counter += 1
 
-            # Ensure the directory exists
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-
             with open(filepath, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
             self.downloaded_files.add(url)
-            print(f"✓ Downloaded: {filepath}")
+            print(f"✓ Downloaded: {os.path.basename(filepath)}")
             return True
 
         except requests.RequestException as e:
-            print(f"✗ Failed to download {os.path.basename(filepath)}: {e}")
+            print(f"✗ Failed to download {filename}: {e}")
             return False
 
     def scrape_page(self, page_url, preview_only=False):
@@ -314,31 +218,18 @@ class ResourceScraper:
         if not soup:
             return []
 
-        # Get page title for folder naming
-        page_title = self.get_page_title(soup)
-        print(f"Page title: {page_title}")
-
-        # Determine folder path for this page
-        folder_path = self.get_folder_path(page_url, page_title)
-        print(f"Folder path: {folder_path}")
-
         resources = self.find_resources(soup, page_url)
         print(f"Found {len(resources)} resources on this page")
 
         if preview_only:
             print("\n--- PREVIEW MODE - Files that would be downloaded: ---")
             for i, resource in enumerate(resources, 1):
-                full_filepath = os.path.join(folder_path, resource["filename"])
                 print(f"{i}. Link text: '{resource['link_text']}'")
                 print(f"   Generated filename: {resource['filename']}")
-                print(f"   Full path: {full_filepath}")
                 print(f"   Original filename: {resource['original_filename']}")
                 print(f"   URL: {resource['url']}")
                 print()
             return resources
-
-        # Create folder if not in preview mode
-        self.ensure_folder_exists(folder_path)
 
         downloaded = []
         for resource in resources:
@@ -346,10 +237,7 @@ class ResourceScraper:
             print(f"Generated filename: {resource['filename']}")
             print(f"Original filename: {resource['original_filename']}")
 
-            full_filepath = os.path.join(folder_path, resource["filename"])
-
-            if self.download_file(resource["url"], full_filepath):
-                resource["downloaded_path"] = full_filepath
+            if self.download_file(resource["url"], resource["filename"]):
                 downloaded.append(resource)
 
             # Be respectful - add small delay between downloads
@@ -372,15 +260,6 @@ class ResourceScraper:
 
         return all_downloaded
 
-    def print_folder_structure(self):
-        """Print the created folder structure"""
-        print("\n=== FOLDER STRUCTURE ===")
-        for url, folder_path in self.folder_structure.items():
-            relative_path = os.path.relpath(folder_path, self.download_folder)
-            print(f"URL: {url}")
-            print(f"Folder: {relative_path}")
-            print()
-
 
 # Usage Example
 if __name__ == "__main__":
@@ -389,16 +268,16 @@ if __name__ == "__main__":
 
     # List of pages to scrape (add your actual URLs)
     pages_to_scrape = [
-        "https://www.sabbathschoolpersonalministries.org/special-sabbaths",
+        "https://www.sabbathschoolpersonalministries.org/iicd",
         # Add more pages as needed
     ]
 
-    # PREVIEW MODE - See what files would be downloaded and their folder structure
+    # PREVIEW MODE - See what files would be downloaded and their names
     print("=== PREVIEW MODE ===")
     scraper.scrape_multiple_pages(pages_to_scrape, preview_only=True)
-    scraper.print_folder_structure()
 
     # Uncomment the lines below to actually download after previewing
+
     # Actual download
     print("\n=== STARTING ACTUAL DOWNLOAD ===")
     downloaded_resources = scraper.scrape_multiple_pages(pages_to_scrape)
@@ -407,13 +286,6 @@ if __name__ == "__main__":
     print(f"Total resources downloaded: {len(downloaded_resources)}")
     print(f"Files saved to: {scraper.download_folder}")
 
-    # Print folder structure
-    scraper.print_folder_structure()
-
-    # Print list of downloaded files with their paths
+    # Print list of downloaded files with their link text
     for resource in downloaded_resources:
-        if "downloaded_path" in resource:
-            relative_path = os.path.relpath(
-                resource["downloaded_path"], scraper.download_folder
-            )
-            print(f"- {relative_path} (from: '{resource['link_text']}')")
+        print(f"- {resource['filename']} (from: '{resource['link_text']}')")
