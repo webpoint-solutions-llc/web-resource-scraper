@@ -61,10 +61,16 @@ source scraper_env/bin/activate
 pip install -r requirements.txt
 ```
 
-If you don't have a `requirements.txt` file, install dependencies manually:
+For a minimal installation with just the essential dependencies:
 
 ```bash
-pip install requests beautifulsoup4 pathlib
+pip install -r requirements-minimal.txt
+```
+
+Or install dependencies manually:
+
+```bash
+pip install requests>=2.31.0 beautifulsoup4>=4.12.0
 ```
 
 ## Quick Start
@@ -228,21 +234,34 @@ logging.basicConfig(level=logging.DEBUG)
 
 ```
 web-resource-scraper/
-├── resource_scraper.py      # Main scraper class
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
-├── examples/               # Example scripts
+├── resource_scraper.py          # Main scraper class
+├── requirements.txt             # Full dependencies
+├── requirements-minimal.txt     # Essential dependencies only
+├── README.md                   # This file
+├── examples/                   # Example scripts
 │   ├── basic_usage.py
 │   └── advanced_usage.py
-└── tests/                  # Unit tests (optional)
+└── tests/                      # Unit tests (optional)
     └── test_scraper.py
 ```
 
 ## Dependencies
 
-- **requests** (>=2.25.0) - HTTP library for making web requests
-- **beautifulsoup4** (>=4.9.0) - HTML/XML parser for extracting data
-- **pathlib** (built-in) - Object-oriented filesystem paths
+### Core Dependencies
+- **requests** (>=2.31.0) - HTTP library for making web requests
+- **beautifulsoup4** (>=4.12.0) - HTML/XML parser for extracting data
+
+### Optional Dependencies (in full requirements.txt)
+- **lxml** (>=4.9.0) - Faster XML/HTML parser backend
+- **urllib3** (>=2.0.0) - Low-level HTTP client
+- **certifi** (>=2023.7.22) - SSL certificate bundle
+- **chardet** (>=5.2.0) - Character encoding detection
+
+### Built-in Dependencies
+- **pathlib** - Object-oriented filesystem paths (Python 3.4+)
+- **time** - Time-related functions
+- **os** - Operating system interface
+- **re** - Regular expressions
 
 ## Contributing
 
