@@ -66,12 +66,28 @@ class ResourceScraper:
             return ".ppt"
         elif path.endswith(".pptx"):
             return ".pptx"
+        elif path.endswith(".docx"):
+            return ".docx"
+        elif path.endswith(".xls"):
+            return ".xls"
+        elif path.endswith(".mp4"):
+            return ".mp4"
+        elif path.endswith(".doc"):
+            return ".doc"
         else:
             # Try to detect from URL parameters or guess
             if "pdf" in url.lower():
                 return ".pdf"
             elif "ppt" in url.lower():
                 return ".pptx"
+            elif "docx" in url.lower():
+                return ".docx"
+            elif "xls" in url.lower():
+                return ".xls"
+            elif "mp4" in url.lower():
+                return ".mp4"
+            elif "doc" in url.lower():
+                return ".doc"
             else:
                 return ".pdf"  # Default fallback
 
@@ -123,8 +139,12 @@ class ResourceScraper:
 
             # Check if it's a PDF or PPT file
             if any(
-                full_url.lower().endswith(ext) for ext in [".pdf", ".ppt", ".pptx"]
-            ) or any(ext in full_url.lower() for ext in ["pdf", "ppt"]):
+                full_url.lower().endswith(ext)
+                for ext in [".pdf", ".ppt", ".pptx", ".docx", ".xls", ".mp4", ".doc"]
+            ) or any(
+                ext in full_url.lower()
+                for ext in ["pdf", "ppt", "xls", "docx", "mp4", "doc"]
+            ):
 
                 # Get link text and clean it
                 link_text = link.get_text(strip=True)
@@ -153,7 +173,16 @@ class ResourceScraper:
             if src:
                 full_url = urljoin(page_url, src)
                 if any(
-                    full_url.lower().endswith(ext) for ext in [".pdf", ".ppt", ".pptx"]
+                    full_url.lower().endswith(ext)
+                    for ext in [
+                        ".pdf",
+                        ".ppt",
+                        ".pptx",
+                        ".docx",
+                        ".xls",
+                        ".mp4",
+                        ".doc",
+                    ]
                 ):
 
                     # For embedded content, try to find nearby text or title
@@ -268,7 +297,7 @@ if __name__ == "__main__":
 
     # List of pages to scrape (add your actual URLs)
     pages_to_scrape = [
-        "https://www.sabbathschoolpersonalministries.org/iicd",
+        "https://www.sabbathschoolpersonalministries.org/acs_iicd",
         # Add more pages as needed
     ]
 
@@ -278,6 +307,7 @@ if __name__ == "__main__":
 
     # Uncomment the lines below to actually download after previewing
 
+""""
     # Actual download
     print("\n=== STARTING ACTUAL DOWNLOAD ===")
     downloaded_resources = scraper.scrape_multiple_pages(pages_to_scrape)
@@ -289,3 +319,4 @@ if __name__ == "__main__":
     # Print list of downloaded files with their link text
     for resource in downloaded_resources:
         print(f"- {resource['filename']} (from: '{resource['link_text']}')")
+"""
