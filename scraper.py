@@ -307,7 +307,6 @@ if __name__ == "__main__":
 
     # Uncomment the lines below to actually download after previewing
 
-""""
     # Actual download
     print("\n=== STARTING ACTUAL DOWNLOAD ===")
     downloaded_resources = scraper.scrape_multiple_pages(pages_to_scrape)
@@ -319,4 +318,3 @@ if __name__ == "__main__":
     # Print list of downloaded files with their link text
     for resource in downloaded_resources:
         print(f"- {resource['filename']} (from: '{resource['link_text']}')")
-"""
